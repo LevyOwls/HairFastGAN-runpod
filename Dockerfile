@@ -9,6 +9,13 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     git \
     git-lfs \
+    build-essential \
+    cmake \
+    pkg-config \
+    libx11-dev \
+    libatlas-base-dev \
+    libgtk-3-dev \
+    libboost-python-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear directorio de trabajo
