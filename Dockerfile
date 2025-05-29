@@ -1,64 +1,75 @@
-# Usa la versión "devel" para tener nvcc incluido
+# =========================================
+# Dockerfile para HairFastGAN en RunPod
+# =========================================
+
+# 1) Usamos la imagen devel para tener nvcc disponible
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
-# Evitar interacciones durante la instalación
+# 2) Evitar prompts durante la instalación
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependencias del sistema
+# 3) Habilitar universe y instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    git \
-    git-lfs \
-    build-essential \
-    cmake \
-    pkg-config \
-    libx11-dev \
-    libatlas-base-dev \
-    libgtk-3-dev \
-    libboost-python-dev \
-    ninja-build \
-    wget \
-    unzip \
+      software-properties-common \
+    && add-apt-repository universe \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+      python3 \
+      python3-pip \
+      git \
+      git-lfs \
+      build-essential \
+      cmake \
+      pkg-config \
+      libx11-dev \
+      libatlas-base-dev \
+      libgtk-3-dev \
+      libboost-python-dev \
+      ninja-build \
+      wget \
+      unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Crear directorio de trabajo
+# 4) Crear y posicionar el workspace
 WORKDIR /workspace
 
-# Clonar el repositorio
-RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git && \
-    cd HairFastGAN && git lfs pull
+# 5) Clonar repositorio y bajar modelos con Git LFS
+RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git \
+    && cd HairFastGAN \
+    && git lfs pull
 
-# Descargar modelos preentrenados
-RUN cd HairFastGAN && \
-    git clone https://huggingface.co/AIRI-Institute/HairFastGAN && \
-    cd HairFastGAN && git lfs pull && \
-    cd .. && \
-    mv HairFastGAN/pretrained_models pretrained_models && \
-    mv HairFastGAN/input input && \
-    rm -rf HairFastGAN
+# 6) Descargar los pesos preentrenados desde HuggingFace
+RUN cd HairFastGAN \
+    && git clone https://huggingface.co/AIRI-Institute/HairFastGAN \
+    && cd HairFastGAN \
+    && git lfs pull \
+    && cd .. \
+    && mv HairFastGAN/pretrained_models pretrained_models \
+    && mv HairFastGAN/input input \
+    && rm -rf HairFastGAN
 
-# Instalar dependencias de Python
-# Alineamos la versión de Torch a CUDA 11.8
+# 7) Instalar dependencias de Python
+#    - Torch y torchvision empatan con CUDA 11.8 (+cu118)
+#    - El resto desde requirements.txt
 RUN pip3 install --no-cache-dir \
-    torch==1.13.1+cu118 \
-    torchvision==0.14.1+cu118 \
-    -f https://download.pytorch.org/whl/torch_stable.html && \
-    pip3 install --no-cache-dir -r HairFastGAN/requirements.txt && \
-    pip3 install --no-cache-dir runpod
+      torch==1.13.1+cu118 \
+      torchvision==0.14.1+cu118 \
+      -f https://download.pytorch.org/whl/torch_stable.html \
+    && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
+    && pip3 install --no-cache-dir runpod
 
-# Añadir el PATH a CUDA
+# 8) Asegurar accesibilidad a nvcc y librerías CUDA
 ENV PATH=/usr/local/cuda/bin:${PATH} \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
-# Configurar PYTHONPATH
+# 9) Añadir HairFastGAN al PYTHONPATH
 ENV PYTHONPATH=/workspace/HairFastGAN:$PYTHONPATH
 
-# Directorio de trabajo final
+# 10) Directorio final de trabajo
 WORKDIR /workspace/HairFastGAN
 
-# Copiar el handler
+# 11) Copiar tu handler de RunPod
 COPY rp_handler.py /workspace/HairFastGAN/
 
-# Comando por defecto para RunPod
+# 12) Comando por defecto al iniciar el contenedor
 CMD ["python3", "rp_handler.py"]
