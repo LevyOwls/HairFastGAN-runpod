@@ -2,55 +2,58 @@
 # Dockerfile para HairFastGAN en RunPod
 # =========================================
 
-# 1) Usamos la imagen "devel" para tener nvcc disponible
+# 1) Imagen devel para incluir nvcc
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
-# 2) Evitar prompts durante la instalación
+# 2) Evitar prompts durante apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 3) Habilitar universe, apuntar a un mirror válido y luego instalar dependencias del sistema
+# 3) Habilitar repos y cambiar mirror, luego instalar deps del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
       software-properties-common \
+      apt-transport-https \
+      ca-certificates \
+    && add-apt-repository main \
     && add-apt-repository universe \
-    && sed -i 's|http://archive.ubuntu.com/ubuntu|http://us.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
+    && add-apt-repository restricted \
+    && add-apt-repository multiverse \
+    && sed -i 's|https://archive.ubuntu.com/ubuntu|https://us.archive.ubuntu.com/ubuntu|g; s|http://archive.ubuntu.com/ubuntu|http://us.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-      python3 \
-      python3-pip \
-      git \
-      git-lfs \
-      build-essential \
-      cmake \
-      pkg-config \
-      libx11-dev \
-      libatlas-base-dev \
-      libgtk-3-dev \
-      libboost-python-dev \
-      ninja-build \
-      wget \
-      unzip \
+        python3 \
+        python3-pip \
+        git \
+        git-lfs \
+        build-essential \
+        cmake \
+        pkg-config \
+        libx11-dev \
+        libatlas-base-dev \
+        libgtk-3-dev \
+        libboost-python-dev \
+        ninja-build \
+        wget \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# 4) Crear y posicionar el workspace
+# 4) Directorio de trabajo inicial
 WORKDIR /workspace
 
-# 5) Clonar el repositorio y bajar datos con Git LFS
+# 5) Clonar HairFastGAN y descargar con Git LFS
 RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git \
     && cd HairFastGAN \
     && git lfs pull
 
-# 6) Descargar los pesos preentrenados desde HuggingFace y reordenar carpetas
+# 6) Bajar pesos preentrenados de HuggingFace y reordenar carpetas
 RUN cd HairFastGAN \
     && git clone https://huggingface.co/AIRI-Institute/HairFastGAN \
-    && cd HairFastGAN \
-    && git lfs pull \
+    && cd HairFastGAN && git lfs pull \
     && cd .. \
     && mv HairFastGAN/pretrained_models pretrained_models \
-    && mv HairFastGAN/input input \
+    && mv HairFastGAN/input        input \
     && rm -rf HairFastGAN
 
-# 7) Instalar dependencias de Python
-#    - Usamos +cu117 para Torch/Torchvision
+# 7) Instalar dependencias Python con +cu117
 RUN pip3 install --no-cache-dir \
       torch==1.13.1+cu117 \
       torchvision==0.14.1+cu117 \
@@ -58,18 +61,10 @@ RUN pip3 install --no-cache-dir \
     && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
     && pip3 install --no-cache-dir runpod
 
-# 8) Asegurar accesibilidad a nvcc y librerías CUDA
+# 8) Asegurar nvcc y librerías CUDA en PATH
 ENV PATH=/usr/local/cuda/bin:${PATH} \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} \
+    PYTHONPATH=/workspace/HairFastGAN:${PYTHONPATH}
 
-# 9) Añadir HairFastGAN al PYTHONPATH
-ENV PYTHONPATH=/workspace/HairFastGAN:$PYTHONPATH
-
-# 10) Directorio final de trabajo
-WORKDIR /workspace/HairFastGAN
-
-# 11) Copiar tu handler de RunPod
-COPY rp_handler.py /workspace/HairFastGAN/
-
-# 12) Comando por defecto al iniciar el contenedor
-CMD ["python3", "rp_handler.py"]
+# 9) Directorio final de trabajo
+WORKDIR /workspace/HairFastG
