@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y \
     libatlas-base-dev \
     libgtk-3-dev \
     libboost-python-dev \
+    ninja-build \
+    wget \
+    unzip \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear directorio de trabajo
@@ -37,7 +42,8 @@ RUN cd HairFastGAN && \
     rm -rf HairFastGAN
 
 # Instalar dependencias de Python
-RUN pip3 install --no-cache-dir \
+RUN pip3 install --no-cache-dir --upgrade pip && \
+    pip3 install --no-cache-dir \
     torch==1.13.1+cu116 \
     torchvision==0.14.1+cu116 \
     -f https://download.pytorch.org/whl/torch_stable.html \
