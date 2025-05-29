@@ -47,7 +47,7 @@ RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir \
     torch==1.13.1+cu116 \
     torchvision==0.14.1+cu116 \
-    -f https://download.pytorch.org/whl/torch_stable.html \
+    --extra-index-url https://download.pytorch.org/whl/cu116 \
     && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
     && pip3 install --no-cache-dir runpod
 
@@ -61,4 +61,4 @@ WORKDIR /workspace/HairFastGAN
 COPY rp_handler.py /workspace/HairFastGAN/
 
 # Comando por defecto para RunPod
-CMD ["python3", "rp_handler.py"] 
+CMD ["python3", "rp_handler.py"]
