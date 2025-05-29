@@ -68,3 +68,10 @@ ENV PATH=/usr/local/cuda/bin:${PATH} \
 
 # 9) Directorio final de trabajo
 WORKDIR /workspace/HairFastG
+
+
+# 10) Copiar tu handler al contenedor
+COPY rp_handler.py /workspace/HairFastGAN/
+
+# 11) Arrancar el servidor de RunPod
+CMD ["python3", "rp_handler.py"]
