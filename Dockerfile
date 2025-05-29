@@ -5,10 +5,10 @@
 # 1) Imagen devel para incluir nvcc
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
-# 2) No prompts en apt
+# 2) Evitar prompts durante apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 3) Enable repos y apuntar a mirror US
+# 3) Habilitar repos y cambiar mirror, luego instalar deps del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
       software-properties-common \
       apt-transport-https \
@@ -36,50 +36,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# 4) workspace
+# 4) Directorio de trabajo inicial
 WORKDIR /workspace
 
-# 5) Clonar código y pesos de HuggingFace
-RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git && \
-    cd HairFastGAN && git lfs pull && \
-    cd .. && \
-    git clone https://huggingface.co/AIRI-Institute/HairFastGAN && \
-    cd HairFastGAN && git lfs pull && \
-    cd .. && \
-    mv HairFastGAN/pretrained_models pretrained_models && \
-    mv HairFastGAN/input        input && \
-    rm -rf HairFastGAN
+# 5) Clonar HairFastGAN y descargar con Git LFS
+RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git \
+    && cd HairFastGAN \
+    && git lfs pull
 
-# 6) Pre-descarga de un checkpoint de ejemplo (resnet18)
-RUN python3 - << 'EOF'
-import torch
-torch.hub.load_state_dict_from_url(
-    'https://download.pytorch.org/models/resnet18-5c106cde.pth',
-    model_dir='/root/.cache/torch/hub/checkpoints',
-    progress=True
-)
-EOF
+# 6) Bajar pesos preentrenados de HuggingFace y reordenar carpetas
+RUN cd HairFastGAN \
+    && git clone https://huggingface.co/AIRI-Institute/HairFastGAN \
+    && cd HairFastGAN && git lfs pull \
+    && cd .. \
+    && mv HairFastGAN/pretrained_models pretrained_models \
+    && mv HairFastGAN/input        input \
+    && rm -rf HairFastGAN
 
-# 7) Instalar Python deps (+cu117)
+# 7) Instalar dependencias Python con +cu117
 RUN pip3 install --no-cache-dir \
       torch==1.13.1+cu117 \
       torchvision==0.14.1+cu117 \
       -f https://download.pytorch.org/whl/torch_stable.html \
-    && pip3 install --no-cache-dir -r pretrained_models/requirements.txt \
+    && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
     && pip3 install --no-cache-dir runpod
 
-# 8) Paths de CUDA y PYTHONPATH
+# 8) Asegurar nvcc y librerías CUDA en PATH
 ENV PATH=/usr/local/cuda/bin:${PATH} \
     LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH} \
-    PYTHONPATH=/workspace/pretrained_models:${PYTHONPATH}
+    PYTHONPATH=/workspace/HairFastGAN:${PYTHONPATH}
 
-# 9) Directorio final
-WORKDIR /workspace/pretrained_models
+# 9) Directorio final de trabajo
+WORKDIR /workspace/HairFastGAN
 
-# 10) Copiar scripts
-COPY rp_handler.py    .
-COPY run_hairfast.py .
 
-# 11) default runpod
-# Para RunPod serverless:
+# 10) Copiar tu handler al contenedor
+COPY rp_handler.py /workspace/HairFastGAN/
+
+# 11) Arrancar el servidor de RunPod
 CMD ["python3", "rp_handler.py"]
