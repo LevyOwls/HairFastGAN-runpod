@@ -67,7 +67,7 @@ ENV PATH=/usr/local/cuda/bin:${PATH} \
     PYTHONPATH=/workspace/HairFastGAN:${PYTHONPATH}
 
 # 9) Directorio final de trabajo
-WORKDIR /workspace/HairFastG
+WORKDIR /workspace/HairFastGAN
 
 
 # 10) Copiar tu handler al contenedor
