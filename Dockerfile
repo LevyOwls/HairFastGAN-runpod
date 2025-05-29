@@ -2,16 +2,17 @@
 # Dockerfile para HairFastGAN en RunPod
 # =========================================
 
-# 1) Usamos la imagen devel para tener nvcc disponible
+# 1) Usamos la imagen "devel" para tener nvcc disponible
 FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 # 2) Evitar prompts durante la instalación
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 3) Habilitar universe y instalar dependencias del sistema
+# 3) Habilitar universe, apuntar a un mirror válido y luego instalar dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
       software-properties-common \
     && add-apt-repository universe \
+    && sed -i 's|http://archive.ubuntu.com/ubuntu|http://us.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
       python3 \
@@ -33,12 +34,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 4) Crear y posicionar el workspace
 WORKDIR /workspace
 
-# 5) Clonar repositorio y bajar modelos con Git LFS
+# 5) Clonar el repositorio y bajar datos con Git LFS
 RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git \
     && cd HairFastGAN \
     && git lfs pull
 
-# 6) Descargar los pesos preentrenados desde HuggingFace
+# 6) Descargar los pesos preentrenados desde HuggingFace y reordenar carpetas
 RUN cd HairFastGAN \
     && git clone https://huggingface.co/AIRI-Institute/HairFastGAN \
     && cd HairFastGAN \
@@ -49,11 +50,10 @@ RUN cd HairFastGAN \
     && rm -rf HairFastGAN
 
 # 7) Instalar dependencias de Python
-#    - Torch y torchvision empatan con CUDA 11.8 (+cu118)
-#    - El resto desde requirements.txt
+#    - Usamos +cu117 para Torch/Torchvision
 RUN pip3 install --no-cache-dir \
-      torch==1.13.1+cu118 \
-      torchvision==0.14.1+cu118 \
+      torch==1.13.1+cu117 \
+      torchvision==0.14.1+cu117 \
       -f https://download.pytorch.org/whl/torch_stable.html \
     && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
     && pip3 install --no-cache-dir runpod
