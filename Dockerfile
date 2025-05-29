@@ -1,69 +1,64 @@
-FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+# Usa la versión "devel" para tener nvcc incluido
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
+# Evitar interacciones durante la instalación
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 0) Cambiar mirror a Chile y desbloquear universe
-RUN sed -i 's|http://archive.ubuntu.com/ubuntu|http://cl.archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list \
- && sed -i 's|^# deb .* universe|deb http://cl.archive.ubuntu.com/ubuntu universe|g' /etc/apt/sources.list \
- && apt-get update \
- && apt-get install -y --no-install-recommends software-properties-common \
- && add-apt-repository universe
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.10 \
+    python3-pip \
+    git \
+    git-lfs \
+    build-essential \
+    cmake \
+    pkg-config \
+    libx11-dev \
+    libatlas-base-dev \
+    libgtk-3-dev \
+    libboost-python-dev \
+    ninja-build \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-# 1) Instalar dependencias del sistema (incluye git-lfs, build-essential, atlas, boost…)
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      python3.10 \
-      python3-pip \
-      git-lfs \
-      build-essential \
-      cmake \
-      pkg-config \
-      libx11-dev \
-      libatlas-base-dev \
-      libgtk-3-dev \
-      libboost-python-dev \
-      ninja-build \
-      wget \
-      unzip \
-      libgl1-mesa-glx \
-      libglib2.0-0 \
- && rm -rf /var/lib/apt/lists/*
-
-# 2) Instalar git si por algún motivo no está (y chequear versión)
-RUN if ! command -v git >/dev/null; then \
-      apt-get update \
-   && apt-get install -y --no-install-recommends git \
-   && rm -rf /var/lib/apt/lists/*; \
-    fi \
- && git --version
-
+# Crear directorio de trabajo
 WORKDIR /workspace
 
-# 3) Clonar repo + LFS
-RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git \
- && cd HairFastGAN \
- && git lfs pull
+# Clonar el repositorio
+RUN git clone https://github.com/AIRI-Institute/HairFastGAN.git && \
+    cd HairFastGAN && git lfs pull
 
-# 4) Modelos preentrenados de HF
-RUN cd HairFastGAN \
- && git clone https://huggingface.co/AIRI-Institute/HairFastGAN pretrained_hf \
- && cd pretrained_hf \
- && git lfs pull \
- && cd .. \
- && mv pretrained_hf/pretrained_models pretrained_models \
- && mv pretrained_hf/input input \
- && rm -rf pretrained_hf
+# Descargar modelos preentrenados
+RUN cd HairFastGAN && \
+    git clone https://huggingface.co/AIRI-Institute/HairFastGAN && \
+    cd HairFastGAN && git lfs pull && \
+    cd .. && \
+    mv HairFastGAN/pretrained_models pretrained_models && \
+    mv HairFastGAN/input input && \
+    rm -rf HairFastGAN
 
-# 5) Dependencias Python
-RUN python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir \
-      torch==1.13.1+cu116 torchvision==0.14.1+cu116 \
-      --extra-index-url https://download.pytorch.org/whl/cu116 \
- && python3 -m pip install --no-cache-dir -r HairFastGAN/requirements.txt \
- && python3 -m pip install --no-cache-dir runpod
+# Instalar dependencias de Python
+# Alineamos la versión de Torch a CUDA 11.8
+RUN pip3 install --no-cache-dir \
+    torch==1.13.1+cu118 \
+    torchvision==0.14.1+cu118 \
+    -f https://download.pytorch.org/whl/torch_stable.html && \
+    pip3 install --no-cache-dir -r HairFastGAN/requirements.txt && \
+    pip3 install --no-cache-dir runpod
 
-ENV PYTHONPATH=/workspace/HairFastGAN
+# Añadir el PATH a CUDA
+ENV PATH=/usr/local/cuda/bin:${PATH} \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+# Configurar PYTHONPATH
+ENV PYTHONPATH=/workspace/HairFastGAN:$PYTHONPATH
+
+# Directorio de trabajo final
 WORKDIR /workspace/HairFastGAN
+
+# Copiar el handler
 COPY rp_handler.py /workspace/HairFastGAN/
 
+# Comando por defecto para RunPod
 CMD ["python3", "rp_handler.py"]
