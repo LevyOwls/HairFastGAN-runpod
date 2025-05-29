@@ -21,7 +21,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && git --version
 
 # Crear directorio de trabajo
 WORKDIR /workspace
@@ -44,14 +45,14 @@ RUN cd HairFastGAN && \
 # Instalar dependencias de Python
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir \
-    torch==1.13.1 \
-    torchvision==0.14.1 \
+    torch==1.13.1+cu116 \
+    torchvision==0.14.1+cu116 \
     -f https://download.pytorch.org/whl/torch_stable.html \
     && pip3 install --no-cache-dir -r HairFastGAN/requirements.txt \
     && pip3 install --no-cache-dir runpod
 
 # Configurar variables de entorno
-ENV PYTHONPATH=/workspace/HairFastGAN:$PYTHONPATH
+ENV PYTHONPATH=/workspace/HairFastGAN
 
 # Directorio de trabajo final
 WORKDIR /workspace/HairFastGAN
