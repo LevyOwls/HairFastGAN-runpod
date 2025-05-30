@@ -4,14 +4,25 @@ import io
 from PIL import Image
 from hair_swap import HairFast, get_parser
 
-# Configurar el tamaño del modelo según entrenamiento (512)
-IMAGE_SIZE = 512
+# Configuración del modelo para 1024×1024
+IMAGE_SIZE = 1024
+STYLEGAN_CKPT   = "pretrained_models/StyleGAN/ffhq.pt"
+ROTATE_CKPT     = "pretrained_models/Rotate/rotate_best.pth"
+BLENDING_CKPT   = "pretrained_models/Blending/checkpoint.pth"
+POSTPROC_CKPT   = "pretrained_models/PostProcess/pp_model.pth"
 
-# Inicializar HairFast con parámetros por defecto
-hair_fast = HairFast(get_parser().parse_args(["--size", str(IMAGE_SIZE)]))
+# Inicializa HairFast con checkpoints compatibles para 1024×1024
+hair_fast = HairFast(get_parser().parse_args([
+    "--size", str(IMAGE_SIZE),
+    "--ckpt", STYLEGAN_CKPT,
+    "--rotate_checkpoint", ROTATE_CKPT,
+    "--blending_checkpoint", BLENDING_CKPT,
+    "--pp_checkpoint", POSTPROC_CKPT
+]))
+
 
 def base64_to_pil(b64: str) -> Image.Image:
-    """Convierte un string base64 a PIL Image en RGB."""
+    """Convierte un string base64 a PIL Image RGB."""
     if ',' in b64:
         b64 = b64.split(',')[1]
     data = base64.b64decode(b64)
@@ -28,7 +39,7 @@ def preprocess(img: Image.Image) -> Image.Image:
 
 
 def pil_to_base64(img: Image.Image) -> str:
-    """Convierte PIL Image a string base64 PNG."""
+    """Convierte una PIL Image a string base64 PNG."""
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode()
