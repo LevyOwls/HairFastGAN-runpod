@@ -46,4 +46,5 @@ def handler(event):
     return {'result_image': result_b64}
 
 if __name__ == '__main__':
-    runpod.serverless.start(handler)
+    # Pasar un dict con el handler para evitar el TypeError en start
+    runpod.serverless.start({"handler": handler})
