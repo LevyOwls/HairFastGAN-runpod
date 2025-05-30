@@ -4,47 +4,68 @@ import io
 from PIL import Image
 from hair_swap import HairFast, get_parser
 
-# Inicializar HairFast con los parámetros por defecto según el README
-hair_fast = HairFast(get_parser().parse_args([]))
+# Configurar el tamaño del modelo según entrenamiento (512)
+IMAGE_SIZE = 512
+
+# Inicializar HairFast con parámetros por defecto
+hair_fast = HairFast(get_parser().parse_args(["--size", str(IMAGE_SIZE)]))
+
+def base64_to_pil(b64: str) -> Image.Image:
+    """Convierte un string base64 a PIL Image en RGB."""
+    if ',' in b64:
+        b64 = b64.split(',')[1]
+    data = base64.b64decode(b64)
+    return Image.open(io.BytesIO(data)).convert('RGB')
+
+
+def preprocess(img: Image.Image) -> Image.Image:
+    """Recorta centrado al cuadrado y redimensiona a IMAGE_SIZE."""
+    w, h = img.size
+    m = min(w, h)
+    left, top = (w - m)//2, (h - m)//2
+    cropped = img.crop((left, top, left + m, top + m))
+    return cropped.resize((IMAGE_SIZE, IMAGE_SIZE), Image.LANCZOS)
+
+
+def pil_to_base64(img: Image.Image) -> str:
+    """Convierte PIL Image a string base64 PNG."""
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return base64.b64encode(buf.getvalue()).decode()
+
 
 def handler(event):
     """
-    Handler para RunPod basado en el README oficial de HairFastGAN.
-    Se espera un payload JSON con:
+    Handler para RunPod que procesa base64 de 3 imágenes y devuelve el resultado.
+    Espera payload:
     {
       "input": {
-        "face_path":  "/ruta/a/face.png",
-        "shape_path": "/ruta/a/shape.png",
-        "color_path": "/ruta/a/color.png"
+        "face_image": "<base64>",
+        "shape_image": "<base64>",
+        "color_image": "<base64>"
       }
-    }
-    Devuelve:
-    {
-      "result_image": "<PNG base64>"
     }
     """
     data = event.get('input', {})
-    face_path  = data.get('face_path')
-    shape_path = data.get('shape_path')
-    color_path = data.get('color_path')
-    if not all([face_path, shape_path, color_path]):
-        raise ValueError('Se requieren face_path, shape_path y color_path en el payload')
+    face_b64  = data.get('face_image')
+    shape_b64 = data.get('shape_image')
+    color_b64 = data.get('color_image')
+    if not all([face_b64, shape_b64, color_b64]):
+        raise ValueError('Se requieren base64: face_image, shape_image y color_image en el payload')
 
-    # Cargar imágenes desde disco
-    face_img  = Image.open(face_path).convert('RGB')
-    shape_img = Image.open(shape_path).convert('RGB')
-    color_img = Image.open(color_path).convert('RGB')
+    # Decodificar y preprocesar
+    face  = preprocess(base64_to_pil(face_b64))
+    shape = preprocess(base64_to_pil(shape_b64))
+    color = preprocess(base64_to_pil(color_b64))
 
-    # Inferencia (transferencia de peinado)
-    result_img = hair_fast(face_img, shape_img, color_img)
+    # Inferencia
+    result_img = hair_fast(face, shape, color)
 
-    # Convertir resultado a base64 PNG
-    buf = io.BytesIO()
-    result_img.save(buf, format='PNG')
-    result_b64 = base64.b64encode(buf.getvalue()).decode()
-
-    return {'result_image': result_b64}
+    # Convertir a base64 y retornar JSON
+    return {
+        'status': 'success',
+        'output': {'result_image': pil_to_base64(result_img)}
+    }
 
 if __name__ == '__main__':
-    # Pasar un dict con el handler para evitar el TypeError en start
     runpod.serverless.start({"handler": handler})
