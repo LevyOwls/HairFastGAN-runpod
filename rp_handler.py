@@ -3,6 +3,8 @@ import base64
 import io
 from PIL import Image
 from hair_swap import HairFast, get_parser
+import torchvision.transforms.functional as TF
+import torch
 
 # Configuración del modelo para 1024×1024
 IMAGE_SIZE = 1024
@@ -38,8 +40,11 @@ def preprocess(img: Image.Image) -> Image.Image:
     return cropped.resize((IMAGE_SIZE, IMAGE_SIZE), Image.LANCZOS)
 
 
-def pil_to_base64(img: Image.Image) -> str:
-    """Convierte una PIL Image a string base64 PNG."""
+def image_to_base64(img) -> str:
+    """Convierte una PIL Image o Tensor a string base64 PNG."""
+    if isinstance(img, torch.Tensor):
+        # Convertir tensor a PIL Image
+        img = TF.to_pil_image(img.clamp(0, 1))
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return base64.b64encode(buf.getvalue()).decode()
@@ -69,13 +74,13 @@ def handler(event):
     shape = preprocess(base64_to_pil(shape_b64))
     color = preprocess(base64_to_pil(color_b64))
 
-    # Inferencia
+    # Inferencia devuelve tensor
     result_img = hair_fast(face, shape, color)
 
     # Convertir a base64 y retornar JSON
     return {
         'status': 'success',
-        'output': {'result_image': pil_to_base64(result_img)}
+        'output': {'result_image': image_to_base64(result_img)}
     }
 
 if __name__ == '__main__':
